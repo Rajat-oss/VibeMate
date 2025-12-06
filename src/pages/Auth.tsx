@@ -1,21 +1,44 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     name: ""
   });
+  const { signIn, signUp } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle auth logic here
-    console.log(isLogin ? "Login" : "Register", formData);
+    setLoading(true);
+    
+    try {
+      if (isLogin) {
+        await signIn(formData.email, formData.password);
+      } else {
+        await signUp(formData.email, formData.password, formData.name);
+      }
+      navigate('/feed');
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,8 +83,8 @@ const Auth = () => {
                 required
               />
             </div>
-            <Button type="submit" className="w-full">
-              {isLogin ? "Sign In" : "Create Account"}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Loading..." : (isLogin ? "Sign In" : "Create Account")}
             </Button>
           </form>
           <div className="mt-4 text-center">

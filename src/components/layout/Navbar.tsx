@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Menu, X, User, MessageCircle, Users, Bell, Settings } from "lucide-react";
+import { Heart, Menu, X, User, MessageCircle, Users, Bell, Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -16,6 +17,15 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const isLanding = location.pathname === "/";
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <nav className={cn(
@@ -61,20 +71,20 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {isLanding ? (
               <>
-                <Link to="/feed">
+                <Link to="/auth">
                   <Button variant="ghost">Sign In</Button>
                 </Link>
-                <Link to="/feed">
+                <Link to="/auth">
                   <Button variant="coral">Get Started</Button>
                 </Link>
               </>
-            ) : (
-              <Link to="/settings">
-                <Button variant="ghost" size="icon">
-                  <Settings className="w-5 h-5" />
+            ) : user ? (
+              <>
+                <Button variant="ghost" size="icon" onClick={handleSignOut}>
+                  <LogOut className="w-5 h-5" />
                 </Button>
-              </Link>
-            )}
+              </>
+            ) : null}
           </div>
 
           {/* Mobile Menu Button */}
@@ -117,9 +127,16 @@ export function Navbar() {
                 );
               })}
               <div className="pt-4 flex flex-col gap-2">
-                <Link to="/feed" onClick={() => setIsOpen(false)}>
-                  <Button variant="coral" className="w-full">Get Started</Button>
-                </Link>
+                {isLanding ? (
+                  <Link to="/auth" onClick={() => setIsOpen(false)}>
+                    <Button variant="coral" className="w-full">Get Started</Button>
+                  </Link>
+                ) : user ? (
+                  <Button variant="ghost" className="w-full" onClick={() => { handleSignOut(); setIsOpen(false); }}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </Button>
+                ) : null}
               </div>
             </div>
           </motion.div>

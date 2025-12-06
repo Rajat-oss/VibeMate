@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import Feed from "./pages/Feed";
 import Threads from "./pages/Threads";
@@ -13,24 +14,42 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <div>Loading...</div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  
+  return <>{children}</>;
+};
+
+const AppRoutes = () => {
+  const { user } = useAuth();
+  
+  return (
+    <Routes>
+      <Route path="/" element={user ? <Navigate to="/feed" replace /> : <Index />} />
+      <Route path="/auth" element={user ? <Navigate to="/feed" replace /> : <Auth />} />
+      <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
+      <Route path="/threads" element={<ProtectedRoute><Threads /></ProtectedRoute>} />
+      <Route path="/requests" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/feed" element={<Feed />} />
-          <Route path="/threads" element={<Threads />} />
-          <Route path="/requests" element={<Requests />} />
-          <Route path="/profile" element={<Profile />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
