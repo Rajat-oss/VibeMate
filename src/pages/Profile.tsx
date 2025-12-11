@@ -9,14 +9,19 @@ import {
   Heart,
   Camera,
   Sparkles,
-  LogOut
+  LogOut,
+  Trash2
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
   const { toast } = useToast();
+  const { signOut, deleteAccount } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
 
   const profile = {
@@ -199,13 +204,42 @@ const Profile = () => {
               </div>
             </button>
 
-            <button className="w-full glass-card rounded-2xl p-4 flex items-center gap-4 hover:shadow-hover transition-all text-left text-destructive">
-              <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-                <LogOut className="w-5 h-5" />
+            <button 
+              onClick={async () => {
+                await signOut();
+                navigate('/auth');
+              }}
+              className="w-full glass-card rounded-2xl p-4 flex items-center gap-4 hover:shadow-hover transition-all text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                <LogOut className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="flex-1">
                 <h4 className="font-semibold">Sign Out</h4>
-                <p className="text-sm opacity-70">Log out of your account</p>
+                <p className="text-sm text-muted-foreground">Log out of your account</p>
+              </div>
+            </button>
+
+            <button 
+              onClick={async () => {
+                if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                  try {
+                    await deleteAccount();
+                    toast({ title: "Account deleted", description: "Your account has been permanently deleted." });
+                    navigate('/auth');
+                  } catch (error: any) {
+                    toast({ title: "Error", description: error.message, variant: "destructive" });
+                  }
+                }
+              }}
+              className="w-full glass-card rounded-2xl p-4 flex items-center gap-4 hover:shadow-hover transition-all text-left text-destructive"
+            >
+              <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold">Delete Account</h4>
+                <p className="text-sm opacity-70">Permanently delete your account</p>
               </div>
             </button>
           </motion.div>

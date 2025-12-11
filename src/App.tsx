@@ -10,6 +10,8 @@ import Threads from "./pages/Threads";
 import Requests from "./pages/Requests";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
+import VerifyEmail from "./pages/VerifyEmail";
+import EmailConfirmed from "./pages/EmailConfirmed";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={user ? <Navigate to="/feed" replace /> : <Index />} />
       <Route path="/auth" element={user ? <Navigate to="/feed" replace /> : <Auth />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/email-confirmed" element={<EmailConfirmed />} />
       <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
       <Route path="/threads" element={<ProtectedRoute><Threads /></ProtectedRoute>} />
       <Route path="/requests" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
