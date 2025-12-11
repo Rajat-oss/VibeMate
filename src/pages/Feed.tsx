@@ -1,38 +1,104 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, SlidersHorizontal, MapPin, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { UserCard } from "@/components/cards/UserCard";
 import { ApproachModal } from "@/components/modals/ApproachModal";
 import { Button } from "@/components/ui/button";
-import { mockUsers } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Feed = () => {
-  const [selectedUser, setSelectedUser] = useState<typeof mockUsers[0] | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    fetchUsers();
+
+    const channel = supabase
+      .channel('users-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        fetchUsers();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .neq('id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleApproach = (userId: string) => {
-    const user = mockUsers.find(u => u.id === userId);
-    if (user) {
-      setSelectedUser(user);
+    const foundUser = users.find(u => u.id === userId);
+    if (foundUser) {
+      setSelectedUser(foundUser);
       setIsModalOpen(true);
     }
   };
 
-  const handleSendRequest = (userId: string, message: string) => {
-    toast({
-      title: "Request Sent! 💫",
-      description: `Your approach request has been sent to ${selectedUser?.name}. They'll review it soon.`,
-    });
+  const handleSendRequest = async (userId: string, message: string) => {
+    try {
+      const { error } = await supabase
+        .from('connection_requests')
+        .insert({
+          sender_id: user?.id,
+          receiver_id: userId,
+          message,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Request Sent! 💫",
+        description: `Your approach request has been sent to ${selectedUser?.name}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const filteredUsers = mockUsers.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.interests.some(i => i.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredUsers = users.filter(u =>
+    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.interests && u.interests.some((i: string) => i.toLowerCase().includes(searchQuery.toLowerCase())))
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-warm">
+        <Navbar />
+        <div className="flex items-center justify-center h-screen">
+          <div>Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-warm">
@@ -107,9 +173,9 @@ const Feed = () => {
                 <Sparkles className="w-5 h-5 text-lavender-dark" />
               </div>
               <div>
-                <h3 className="font-semibold text-sm">Tonight's Vibes in Mumbai</h3>
+                <h3 className="font-semibold text-sm">Active Users</h3>
                 <p className="text-sm text-muted-foreground">
-                  12 people looking for companions • 5 café meetups • 3 movie plans
+                  {users.length} people available to connect
                 </p>
               </div>
             </div>
@@ -117,10 +183,22 @@ const Feed = () => {
 
           {/* Users Grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredUsers.map((user, index) => (
+            {filteredUsers.map((u, index) => (
               <UserCard
-                key={user.id}
-                user={user}
+                key={u.id}
+                user={{
+                  id: u.id,
+                  name: u.name,
+                  age: u.age,
+                  city: u.city || 'Unknown',
+                  distance: '0km away',
+                  bio: u.bio || 'No bio yet',
+                  avatar: u.avatar || '',
+                  interests: u.interests || [],
+                  badge: '',
+                  isOnline: false,
+                  isVerified: u.is_verified || false
+                }}
                 onApproach={handleApproach}
                 index={index}
               />

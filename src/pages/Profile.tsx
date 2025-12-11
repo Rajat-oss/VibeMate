@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   User, 
@@ -14,31 +14,81 @@ import {
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 const Profile = () => {
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const profile = {
-    name: "Alex",
-    age: 25,
-    city: "Mumbai",
-    bio: "Tech enthusiast who loves coffee, good conversations, and exploring new places in the city. Looking for genuine connections and adventure buddies!",
-    interests: ["Coffee", "Tech", "Photography", "Travel", "Movies", "Books"],
-    socialPreferences: "Introverted but loves deep conversations",
-    lookingFor: "Café hangouts, movie buddies, weekend adventures",
-    isVerified: true,
-    memberSince: "December 2024",
-    connectionsCount: 12,
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSave = () => {
-    setIsEditing(false);
-    toast({
-      title: "Profile Updated! ✨",
-      description: "Your changes have been saved.",
-    });
+  const handleSave = async () => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update(profile)
+        .eq('id', user?.id);
+
+      if (error) throw error;
+      
+      setIsEditing(false);
+      toast({
+        title: "Profile Updated! ✨",
+        description: "Your changes have been saved.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-warm flex items-center justify-center">
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gradient-warm flex items-center justify-center">
+        <div>Profile not found</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-warm">
@@ -75,10 +125,10 @@ const Profile = () => {
 
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold">{profile.name}, {profile.age}</h1>
+                  <h1 className="text-2xl font-bold">{profile.name}{profile.age ? `, ${profile.age}` : ''}</h1>
                   <p className="text-muted-foreground flex items-center gap-1 mt-1">
                     <MapPin className="w-4 h-4" />
-                    {profile.city}
+                    {profile.city || 'Not set'}
                   </p>
                 </div>
                 <Button 
@@ -98,11 +148,11 @@ const Profile = () => {
               {/* Stats */}
               <div className="flex gap-6 mt-4 pt-4 border-t border-border/50">
                 <div>
-                  <p className="text-2xl font-bold text-coral">{profile.connectionsCount}</p>
+                  <p className="text-2xl font-bold text-coral">0</p>
                   <p className="text-sm text-muted-foreground">Connections</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{profile.memberSince}</p>
+                  <p className="text-sm font-medium">{new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
                   <p className="text-sm text-muted-foreground">Member since</p>
                 </div>
               </div>
@@ -122,11 +172,12 @@ const Profile = () => {
             </h3>
             {isEditing ? (
               <textarea
-                defaultValue={profile.bio}
+                value={profile.bio || ''}
+                onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                 className="w-full h-24 px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-coral focus:ring-2 focus:ring-coral/20 outline-none resize-none text-sm"
               />
             ) : (
-              <p className="text-muted-foreground leading-relaxed">{profile.bio}</p>
+              <p className="text-muted-foreground leading-relaxed">{profile.bio || 'No bio yet'}</p>
             )}
           </motion.div>
 
@@ -142,35 +193,22 @@ const Profile = () => {
               Interests
             </h3>
             <div className="flex flex-wrap gap-2">
-              {profile.interests.map((interest) => (
-                <span
-                  key={interest}
-                  className="px-4 py-2 rounded-full bg-peach text-sm font-medium"
-                >
-                  {interest}
-                </span>
-              ))}
-              {isEditing && (
-                <button className="px-4 py-2 rounded-full border-2 border-dashed border-coral/30 text-sm font-medium text-coral hover:bg-coral/5 transition-colors">
-                  + Add
-                </button>
+              {profile.interests && profile.interests.length > 0 ? (
+                profile.interests.map((interest: string) => (
+                  <span
+                    key={interest}
+                    className="px-4 py-2 rounded-full bg-peach text-sm font-medium"
+                  >
+                    {interest}
+                  </span>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-sm">No interests added yet</p>
               )}
             </div>
           </motion.div>
 
-          {/* Looking For Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass-card rounded-2xl p-6 mb-4"
-          >
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-coral" />
-              Looking For
-            </h3>
-            <p className="text-muted-foreground">{profile.lookingFor}</p>
-          </motion.div>
+
 
           {/* Quick Actions */}
           <motion.div
@@ -199,7 +237,7 @@ const Profile = () => {
               </div>
             </button>
 
-            <button className="w-full glass-card rounded-2xl p-4 flex items-center gap-4 hover:shadow-hover transition-all text-left text-destructive">
+            <button onClick={handleSignOut} className="w-full glass-card rounded-2xl p-4 flex items-center gap-4 hover:shadow-hover transition-all text-left text-destructive">
               <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
                 <LogOut className="w-5 h-5" />
               </div>
