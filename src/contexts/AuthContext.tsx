@@ -9,6 +9,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  deleteAccount: () => Promise<void>
+  resendVerification: (email: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -48,7 +50,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       password,
       options: {
         data: { name },
-        emailRedirectTo: undefined
+        emailRedirectTo: `${window.location.origin}/email-confirmed`
       }
     })
     if (error) {
@@ -68,8 +70,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (error) throw error
   }
 
+  const deleteAccount = async () => {
+    const { error } = await supabase.rpc('delete_user')
+    if (error) throw error
+  }
+
+  const resendVerification = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/email-confirmed`
+      }
+    })
+    if (error) throw error
+  }
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, deleteAccount, resendVerification }}>
       {children}
     </AuthContext.Provider>
   )
